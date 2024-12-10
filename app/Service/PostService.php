@@ -1,48 +1,45 @@
 <?php
 
 namespace App\Service;
+use Illuminate\Support\Str;
 
 use App\Models\Post;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * TODO Abolish.
- *
- * @deprecated
- */
+
 class PostService
 {
     public function store($data)
     {
-        try {
-            DB::beginTransaction();
+        DB::beginTransaction();
 
-            if (isset($data['tag_ids'])) {
-                $tagIds = $data['tag_ids'];
-                unset($data['tag_ids']);
-            }
-            if (isset($data['preview_image'])) {
-                $data['preview_image'] = Storage::disk('public')->put('/images', $data['preview_image']);
-            }
-            if (isset($data['main_image'])) {
-                $data['main_image'] = Storage::disk('public')->put('/images', $data['main_image']);
-            }
+        // Tag IDsni ajratib olish
+        $tagIds = $data['tag_ids'] ?? null;
+        unset($data['tag_ids']);
 
-            // todo No needs to fix this
-            /** @phpstan-ignore-next-line */
-            $post = Post::firstOrCreate($data);
-
-            if (isset($tagIds)) {
-                $post->tags()->attach($tagIds);
-            }
-            DB::commit();
-        } catch (Exception) {
-            DB::rollBack();
-            abort(500);
+        // Fayllarni saqlash va URLni olish
+        if (isset($data['preview_image'])) {
+            $data['preview_image'] = Storage::disk('public')->put('images', $data['preview_image']);
         }
-    }
+
+        if (isset($data['main_image'])) {
+            $data['main_image'] = Storage::disk('public')->put('images', $data['main_image']);
+        }
+        $data['slug'] = Str::slug($data['title'], '-');
+
+        // Postni yaratish yoki topish
+        $post = Post::create($data);
+
+        // Taglarni qo'shish
+        if ($tagIds) {
+            $post->tags()->attach($tagIds);
+        }
+
+        DB::commit();
+    return $post;
+}
 
     public function update($data, $post)
     {
